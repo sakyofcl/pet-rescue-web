@@ -11,7 +11,9 @@ import {ErrorMessage, wrapWithErrorObject} from '../hooks/error-message';
 const REGISTER_VALIDATION_SCHEMA = () => yup.object().shape({
     userName: yup.string().nullable().trim().required('Required'),
     password: yup.string().nullable().trim().min(5,'minimum 5 charecter need').required('Required'),
-    confirmPassword: yup.string().nullable().trim().min(5,'minimum 5 charecter need').required('Required'),
+    confirmPassword: yup.string().nullable().trim().min(5,'minimum 5 charecter need').test('passwords-match', 'Passwords must match', function(value){
+        return this.parent.password === value
+    }).required('Required'),
     phone: yup.string().nullable().max(10,'invalid phone number').min(10, 'invalid phone number')
 });
 
