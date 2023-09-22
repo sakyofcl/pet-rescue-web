@@ -1,9 +1,19 @@
 import React, { useEffect, useState } from "react";
+import * as yup from 'yup';
 import contactServices from '../services/contact-service';
 import { Spinner } from "react-bootstrap";
 import {ContactModel} from '../model/contactModel';
 import {useAuth} from '../hooks/useAuth';
 import { ToastMessage } from "../components/toast-message";
+import {useFormValidations} from '../hooks/useFormValidations';
+import {ErrorMessage, wrapWithErrorObject} from '../hooks/error-message';
+
+
+const CONTACT_VALIDATION_SCHEMA = () => yup.object().shape({
+    name: yup.string().nullable().trim().required('Required'),
+    message: yup.string().nullable().trim().required('Required'),
+    phone: yup.string().nullable().max(10,'invalid phone number').min(10, 'invalid phone number')
+});
 
 export const Contact = ()=>{
   const [items, setItems] = useState([]);
@@ -13,20 +23,26 @@ export const Contact = ()=>{
   const [showToast, setShowToast]= useState(false);
   const {isAdmin} = useAuth();
   const hasWriteAccess = isAdmin();
+  const [validationErrors, onFormValidate, isFormValid] = useFormValidations(CONTACT_VALIDATION_SCHEMA);
+  const Error = wrapWithErrorObject(ErrorMessage, validationErrors);
 
   const onSaveClicked = ()=>{
-      setIsSaveClick(true);
-      contactServices.add(contact).then(()=>{
-          fetchContacts();
-          setContact(new ContactModel());
-          setShowToast(true);
-      }).finally(()=>{
-          setIsSaveClick(false);
-      })
+      onFormValidate(contact).then(() => {
+        setIsSaveClick(true);
+        contactServices.add(contact).then(()=>{
+            fetchContacts();
+            setContact(new ContactModel());
+            setShowToast(true);
+        }).finally(()=>{
+            setIsSaveClick(false);
+        })
+      });
   }
 
   const onChange = (value)=>{
-    setContact({...contact, ...value});
+    const constructedValues = {...contact, ...value};
+    setContact(constructedValues);
+    onFormValidate(constructedValues);
   }
 
   useEffect(()=>{
@@ -76,22 +92,25 @@ export const Contact = ()=>{
                     </h2>
                     <ToastMessage variant="success" message={"Successfully send."} hideTost={setShowToast} show={showToast}/>
                   </div>
-                  <form action="">
+                  <div>
                     <div>
                       <input type="text" placeholder="Your Name"  value={contact.name} onChange={(e)=> onChange({name: e.target.value})} />
+                      <Error propertyName={'name'} />
                     </div>
                     <div>
                       <input type="text" placeholder="Phone Number" value={contact.phone} onChange={(e)=> onChange({phone: e.target.value})}/>
+                      <Error propertyName={'phone'} />
                     </div>
                     <div>
                       <input type="text" className="message-box" placeholder="Message" value={contact.message} onChange={(e)=> onChange({message: e.target.value})}/>
+                      <Error propertyName={'message'} />
                     </div>
                     <div className="btn_box">
-                      <button disabled={isSaveClick} onClick={onSaveClicked}>
+                      <button disabled={isSaveClick || !isFormValid} onClick={onSaveClicked}>
                         SEND
                       </button>
                     </div>
-                  </form>
+                  </div>
                 </div>
               </div>
               <div className="col-md-6">

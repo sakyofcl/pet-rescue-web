@@ -1,10 +1,20 @@
 import React, { useEffect, useState } from "react";
+import * as yup from 'yup';
 import { PetsInformCard } from "../components/pet-inform-card";
 import { Spinner } from "react-bootstrap";
 import informService from "../services/inform-service";
 import { InformModel } from "../model/informModel";
 import {useAuth} from '../hooks/useAuth';
 import { ToastMessage } from "../components/toast-message";
+import {useFormValidations} from '../hooks/useFormValidations';
+import {ErrorMessage, wrapWithErrorObject} from '../hooks/error-message';
+
+
+const INFORM_VALIDATION_SCHEMA = () => yup.object().shape({
+    address: yup.string().nullable().trim().required('Required'),
+    message: yup.string().nullable().trim().required('Required'),
+    image: yup.string().nullable().trim().required('Required')
+});
 
 export const Inform = ()=>{
     const [items, setItems] = useState([]);
@@ -14,6 +24,9 @@ export const Inform = ()=>{
     const {isAdmin} = useAuth();
     const hasWriteAccess = isAdmin();
     const [showToast, setShowToast]= useState(false);
+    const [validationErrors, onFormValidate, isFormValid] = useFormValidations(INFORM_VALIDATION_SCHEMA);
+    const Error = wrapWithErrorObject(ErrorMessage, validationErrors);
+  
 
     useEffect(()=>{
       fetchInform();
@@ -36,7 +49,9 @@ export const Inform = ()=>{
     }
 
     const onChange = (value)=>{
-      setInform({...inform, ...value});
+      const constructedValues = {...inform, ...value};
+      setInform(constructedValues);
+      onFormValidate(constructedValues);
     }
 
     const handleFileChange = (event) => {
@@ -52,14 +67,16 @@ export const Inform = ()=>{
     };
 
     const onSaveClicked = ()=>{
-      setIsSaveClick(true);
-      informService.add(inform).then((data)=>{
-          fetchInform();
-          setInform(new InformModel());
-          setShowToast(true);
-      }).finally(()=>{
-          setIsSaveClick(false);
-      })
+      onFormValidate(inform).then(() => {
+        setIsSaveClick(true);
+        informService.add(inform).then((data)=>{
+            fetchInform();
+            setInform(new InformModel());
+            setShowToast(true);
+        }).finally(()=>{
+            setIsSaveClick(false);
+        })
+      });
     }
 
     return (
@@ -75,12 +92,14 @@ export const Inform = ()=>{
                     </h2>
                     <ToastMessage variant="success" message={"Successfully informed."} hideTost={setShowToast} show={showToast}/>
                   </div>
-                  <form action="">
+                  <div>
                     <div>
                       <input type="text" placeholder="Address" value={inform.address} onChange={(e)=> onChange({address: e.target.value})}/>
+                      <Error propertyName={'address'} />
                     </div>
                     <div>
                       <input type="text" className="message-box" placeholder="Message" value={inform.message} onChange={(e)=> onChange({message: e.target.value})}/>
+                      <Error propertyName={'message'} />
                     </div>
                     <div>
 
@@ -88,16 +107,19 @@ export const Inform = ()=>{
                         <div class="custom-file">
                             <input type="file" class="custom-file-input" accept="image/png, image/jpeg" onChange={handleFileChange}/>
                             <label class="custom-file-label">Choose file</label>
+                            
                         </div>
+                        
                     </div>
+                    <Error propertyName={'image'} />
 
                     </div>
                     <div className="btn_box">
-                      <button disabled={isSaveClick} onClick={onSaveClicked}>
+                      <button disabled={isSaveClick || !isFormValid} onClick={onSaveClicked}>
                         SEND
                       </button>
                     </div>
-                  </form>
+                  </div>
                 </div>
               </div>
               <div className="col-md-6">

@@ -1,31 +1,45 @@
 import React, { useState } from "react";
+import * as yup from 'yup';
 import { NavLink } from "react-router-dom";
 import { UserModel } from "../model/userModel";
 import userService from '../services/user-service';
 import { ToastMessage } from "../components/toast-message";
+import {useFormValidations} from '../hooks/useFormValidations';
+import {ErrorMessage, wrapWithErrorObject} from '../hooks/error-message';
+
+const LOGIN_VALIDATION_SCHEMA = () => yup.object().shape({
+    userName: yup.string().nullable().trim().required('Required'),
+    password: yup.string().nullable().trim().min(5,'minimum 5 charecter need').required('Required')
+});
 
 export const Login = ()=>{
     const [isSaveClick, setIsSaveClick] = useState(false);
     const [user, setUser]= useState(new UserModel());
     const [showToast, setShowToast]= useState(false);
+    const [validationErrors, onFormValidate, isFormValid] = useFormValidations(LOGIN_VALIDATION_SCHEMA);
+    const Error = wrapWithErrorObject(ErrorMessage, validationErrors);
 
     const onSaveClicked = ()=>{
-        setIsSaveClick(true);
-        userService.loginUser(user).then((data)=>{
-            if(data.items.length){
-                userService.saveUserInLocalStorage(data.items[0]);
-                window.location.href='/';
-            }
-            else{
-                setShowToast(true);
-            }
-        }).finally(()=>{
-            setIsSaveClick(false);
-        })
+        onFormValidate(user).then(() => {
+            setIsSaveClick(true);
+            userService.loginUser(user).then((data)=>{
+                if(data.items.length){
+                    userService.saveUserInLocalStorage(data.items[0]);
+                    window.location.href='/';
+                }
+                else{
+                    setShowToast(true);
+                }
+            }).finally(()=>{
+                setIsSaveClick(false);
+            })
+        });
     }
 
     const onChange = (value)=>{
-        setUser({...user, ...value});
+        const constructedValues = {...user, ...value};
+        setUser(constructedValues);
+        onFormValidate(constructedValues);
     }
 
     return (
@@ -44,12 +58,14 @@ export const Login = ()=>{
                                     <div class="form-group">
                                         <label>User Name</label>
                                         <input type="text" class="form-control" name="username" value={user.userName} onChange={(e)=> onChange({userName: e.target.value})}/>
+                                        <Error propertyName={'userName'} />
                                     </div>
                                     <div class="form-group">
                                         <label>Password</label>
                                         <input type="password" class="form-control" name="password" value={user.password} onChange={(e)=> onChange({password: e.target.value})}/>
+                                        <Error propertyName={'password'} />
                                     </div>
-                                    <button type="button" id="sendlogin" class="btn btn-primary"  disabled={isSaveClick} onClick={onSaveClicked}>login</button>
+                                    <button type="button" id="sendlogin" class="btn btn-primary"  disabled={isSaveClick || !isFormValid} onClick={onSaveClicked}>login</button>
                                     <NavLink className="btn btn-secondary ml-4" to="/" >Return Home</NavLink>
                                 </form>
                             </div>
